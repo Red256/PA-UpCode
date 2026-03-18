@@ -90,17 +90,33 @@ function parseCsvLine(line) {
 }
 
 export default function App() {
-  const [location, setLocation] = useState("");
-  const [center, setCenter] = useState(DEFAULT_CENTER);
-  const [zoom, setZoom] = useState(DEFAULT_ZOOM);
-  const [radiusMi, setRadiusMi] = useState(5);
-  const [popupText, setPopupText] = useState("Chicago (default)");
-  const [factors, setFactors] = useState(buildInitialFactors);
-  const [saved, setSaved] = useState(loadSaved);
-  const [locationSet, setLocationSet] = useState(false);
-  const [analyzed, setAnalyzed] = useState(false);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState(null);
+  let [location, setLocation] = useState("");
+  let [center, setCenter] = useState(DEFAULT_CENTER);
+  let [zoom, setZoom] = useState(DEFAULT_ZOOM);
+  let [radiusMi, setRadiusMi] = useState(5);
+  let [popupText, setPopupText] = useState("Chicago (default)");
+  let [factors, setFactors] = useState(buildInitialFactors);
+  let [saved, setSaved] = useState(loadSaved);
+  let [locationSet, setLocationSet] = useState(false);
+  let [analyzed, setAnalyzed] = useState(false);
+  let [analyzing, setAnalyzing] = useState(false);
+  let [analysisResult, setAnalysisResult] = useState(null);
+
+
+  async function geocodeAddress(address) {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`
+    );
+    const data = await res.json();
+
+    if (!data || data.length === 0) return null;
+
+    return {
+      lat: parseFloat(data[0].lat),
+      lng: parseFloat(data[0].lon),
+      displayName: data[0].display_name,
+    };
+  }
 
   const persistSaved = (list) => {
     setSaved(list);
@@ -136,6 +152,9 @@ export default function App() {
     setAnalyzing(true);
     setAnalyzed(false);
     setAnalysisResult(null);
+    const geo = await geocodeAddress(location);
+    const lat = geo.lat
+    const lon = geo.lng
 
     // Mock analysis with a fake delay
     setTimeout(() => {
@@ -166,8 +185,13 @@ export default function App() {
       setAnalyzing(false);
       setAnalyzed(true);
     }, 1500);
-    const {data} = await supabase.rpc("tracts_within_radius", {center_lat: 41.8781, center_lon: -87.7, radius_meters: 5 * 1609.34});
-    console.log(data)
+    const {data: income} = await supabase.rpc("calculate_rent_score", {center_lat: lat, center_lon: lon, radius_meters: radiusMi*1609.34});
+    const {data: home_value} = await supabase.rpc("calculate_home_value_score", {center_lat: lat, center_lon: lon, radius_meters: radiusMi*1609.34});
+    const {data: rent} = await supabase.rpc("calculate_rent_score", {center_lat: lat, center_lon: lon, radius_meters: radiusMi*1609.34});
+
+    console.log(income)
+    console.log(home_value)
+    console.log(rent)
   };
 
   const handleSave = () => {
