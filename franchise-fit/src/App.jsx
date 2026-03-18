@@ -164,7 +164,6 @@ export default function App() {
           medianIncome: 78,
           rentPressure: 64,
           homePrices: 71,
-          competition: 59,
           schoolQuality: 83,
         };
         const noise = Math.floor(Math.random() * 14) - 7;
@@ -281,6 +280,7 @@ export default function App() {
   };
 
   const enabledCount = Object.values(factors).filter((f) => f.enabled).length;
+  const totalFactorCount = FACTOR_DEFAULTS.length;
 
   return (
     <div className="app">
@@ -403,7 +403,7 @@ export default function App() {
         <div className="panel-footer">
           <span>FranchiseFit MVP</span>
           <span className="footer-dot" />
-          <span>{enabledCount} of 5 factors active</span>
+          <span>{enabledCount} of {totalFactorCount} factors active</span>
         </div>
       </div>
     </div>

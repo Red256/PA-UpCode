@@ -2,7 +2,6 @@ const FACTOR_DEFAULTS = [
   { key: "medianIncome", label: "Median Income", icon: "dollar", defaultValue: 75 },
   { key: "rentPressure", label: "Rent Pressure", icon: "building", defaultValue: 70 },
   { key: "homePrices", label: "Home Prices", icon: "home", defaultValue: 72 },
-  { key: "competition", label: "Competition", icon: "users", defaultValue: 68 },
   { key: "schoolQuality", label: "School Quality", icon: "book", defaultValue: 80 },
 ];
 
