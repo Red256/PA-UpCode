@@ -6,14 +6,53 @@ import ScoreCard, { getVerdict } from "./components/ScoreCard";
 import SavedLocations from "./components/SavedLocations";
 import "./App.css";
 import supabase from "./utils/supabase";
+
 const DEFAULT_CENTER = [41.9, -87.7];
 const DEFAULT_ZOOM = 10;
+const SCORE_BASE = 1.0;
+
 function buildInitialFactors() {
   const out = {};
   FACTOR_DEFAULTS.forEach(({ key, defaultValue }) => {
     out[key] = { value: defaultValue, enabled: true };
   });
   return out;
+}
+
+function computeWeightedScore(factors, factorScores) {
+  const enabledEntries = Object.entries(factors).filter(([, factor]) => factor.enabled);
+
+  if (enabledEntries.length === 0) {
+    return null;
+  }
+
+  const factorCount = enabledEntries.length;
+  const normalizedWeights = enabledEntries.map(([, factor]) => factor.value / 100);
+  const averageWeight =
+    normalizedWeights.reduce((sum, weight) => sum + weight, 0) / factorCount;
+  const baseline = SCORE_BASE * (1 - averageWeight);
+
+  let weightedTotal = baseline;
+  const breakdown = {};
+
+  enabledEntries.forEach(([key, factor]) => {
+    const factorScore = Number(factorScores[key] ?? 0);
+    const normalizedFactorScore = factorScore / 100;
+    const contribution = normalizedFactorScore * ((factor.value / 100) / factorCount);
+
+    breakdown[key] = {
+      factorScore,
+      weight: factor.value,
+      contribution: Math.round(contribution * 100),
+    };
+
+    weightedTotal += contribution;
+  });
+
+  return {
+    overall: Math.round(weightedTotal * 100),
+    breakdown,
+  };
 }
 
 function loadSaved() {
@@ -90,12 +129,6 @@ export default function App() {
     setLocationSet(true);
   };
 
-  const computeScore = () => {
-    const enabled = Object.values(factors).filter((f) => f.enabled);
-    if (enabled.length === 0) return null;
-    return Math.round(enabled.reduce((sum, f) => sum + f.value, 0) / enabled.length);
-  };
-
   const handleAnalyze = async () => {
     const enabled = Object.entries(factors).filter(([, f]) => f.enabled);
     if (enabled.length === 0) return;
@@ -108,16 +141,28 @@ export default function App() {
     setTimeout(() => {
       const mockScores = {};
       enabled.forEach(([key, f]) => {
-        // Add slight random variance (-8 to +5) around user's slider value to simulate real data
-        const noise = Math.floor(Math.random() * 14) - 8;
-        mockScores[key] = Math.max(0, Math.min(100, f.value + noise));
+        const baseScores = {
+          medianIncome: 78,
+          rentPressure: 64,
+          homePrices: 71,
+          competition: 59,
+          schoolQuality: 83,
+        };
+        const noise = Math.floor(Math.random() * 14) - 7;
+        mockScores[key] = Math.max(0, Math.min(100, baseScores[key] + noise));
       });
 
-      const avg = Math.round(
-        Object.values(mockScores).reduce((s, v) => s + v, 0) / enabled.length
-      );
+      const weightedResult = computeWeightedScore(factors, mockScores);
+      if (!weightedResult) {
+        setAnalyzing(false);
+        return;
+      }
 
-      setAnalysisResult({ factorScores: mockScores, overall: avg });
+      setAnalysisResult({
+        factorScores: mockScores,
+        overall: weightedResult.overall,
+        weightedBreakdown: weightedResult.breakdown,
+      });
       setAnalyzing(false);
       setAnalyzed(true);
     }, 1500);
@@ -126,7 +171,7 @@ export default function App() {
   };
 
   const handleSave = () => {
-    const score = computeScore();
+    const score = analysisResult?.overall ?? null;
     if (score === null) return;
 
     const verdict = getVerdict(score);
@@ -227,7 +272,7 @@ export default function App() {
         <div className="header">
           <div className="brand">
             <h1>FranchiseFit</h1>
-            <p>Fast location scoring for franchise & SMB decisions.</p>
+            <p>Fast location scoring for franchise and SMB decisions.</p>
           </div>
           <div className="pill">
             <span className="pulse-dot" />

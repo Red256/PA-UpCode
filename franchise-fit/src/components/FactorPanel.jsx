@@ -75,7 +75,7 @@ export default function FactorPanel({ factors, onFactorChange, onToggle }) {
                   <span className="name">{label}</span>
                 </div>
                 <span className="val" style={{ color: f.enabled ? color : undefined }}>
-                  {f.enabled ? f.value : "--"}
+                  {f.enabled ? `${f.value}% wt` : "--"}
                 </span>
               </div>
               <div className="slider-track-wrap">
@@ -98,7 +98,8 @@ export default function FactorPanel({ factors, onFactorChange, onToggle }) {
         })}
       </div>
       <p className="small">
-        Toggle factors on/off and drag sliders to set your criteria.
+        Toggle factors on or off and drag sliders to set how heavily each factor
+        should influence the final score.
       </p>
     </div>
   );

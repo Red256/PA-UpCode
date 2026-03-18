@@ -57,16 +57,18 @@ export default function ScoreCard({ factors, analysisResult }) {
       {/* Per-factor breakdown */}
       <div className="score-breakdown">
         {enabled.map(([key, f]) => {
-          const mockVal = analysisResult.factorScores[key];
-          const diff = mockVal - f.value;
-          const diffLabel = diff > 0 ? `+${diff}` : `${diff}`;
-          const diffCls = diff >= 0 ? "ok" : diff >= -5 ? "warn" : "bad";
+          const factorScore = analysisResult.factorScores[key];
+          const weighted = analysisResult.weightedBreakdown?.[key];
           return (
             <div key={key} className="breakdown-row">
-              <span className="breakdown-label">{key.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase())}</span>
+              <span className="breakdown-label">
+                {key.replace(/([A-Z])/g, " $1").replace(/^./, (s) => s.toUpperCase())}
+              </span>
               <span className="breakdown-vals">
-                <span className="breakdown-score">{mockVal}</span>
-                <span className={`breakdown-diff ${diffCls}`}>{diffLabel}</span>
+                <span className="breakdown-score">{factorScore}</span>
+                <span className="breakdown-diff">
+                  {weighted ? `${weighted.weight}% wt` : `${f.value}% wt`}
+                </span>
               </span>
             </div>
           );
