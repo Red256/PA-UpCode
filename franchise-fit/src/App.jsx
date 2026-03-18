@@ -19,38 +19,33 @@ function buildInitialFactors() {
   return out;
 }
 
-function computeWeightedScore(factors, factorScores) {
-  const enabledEntries = Object.entries(factors).filter(([, factor]) => factor.enabled);
+function computeWeightedScore(factors, factorScores, factorRawValues) {
+  const enabledEntries = Object.entries(factors).filter(([, f]) => f.enabled);
 
-  if (enabledEntries.length === 0) {
-    return null;
-  }
+  if (enabledEntries.length === 0) return null;
 
-  const factorCount = enabledEntries.length;
-  const normalizedWeights = enabledEntries.map(([, factor]) => factor.value / 100);
-  const averageWeight =
-    normalizedWeights.reduce((sum, weight) => sum + weight, 0) / factorCount;
-  const baseline = SCORE_BASE * (1 - averageWeight);
-
-  let weightedTotal = baseline;
+  let weightedSum = 0;
+  let totalWeight = 0;
   const breakdown = {};
 
   enabledEntries.forEach(([key, factor]) => {
-    const factorScore = Number(factorScores[key] ?? 0);
-    const normalizedFactorScore = factorScore / 100;
-    const contribution = normalizedFactorScore * ((factor.value / 100) / factorCount);
+    const weight = factor.value;
+    const score = Number(factorScores[key] ?? 0);
+
+    weightedSum += score * weight;
+    totalWeight += weight;
 
     breakdown[key] = {
-      factorScore,
-      weight: factor.value,
-      contribution: Math.round(contribution * 100),
+      factorScore: score,
+      raw_value: factorRawValues[key],
+      contribution: totalWeight === 0 ? 0 : Math.round((score * weight) / totalWeight),
     };
-
-    weightedTotal += contribution;
   });
 
+  const overall = totalWeight === 0 ? 0 : weightedSum / totalWeight;
+
   return {
-    overall: Math.round(weightedTotal * 100),
+    overall: Math.round(overall),
     breakdown,
   };
 }
@@ -152,45 +147,47 @@ export default function App() {
     setAnalyzing(true);
     setAnalyzed(false);
     setAnalysisResult(null);
+    console.log(factors)
     const geo = await geocodeAddress(location);
     const lat = geo.lat
     const lon = geo.lng
+    const {data: income} = await supabase.rpc("calculate_income", {center_lat: lat, center_lon: lon, radius_meters: radiusMi*1609.34});
+    const {data: home_value} = await supabase.rpc("calculate_home_value", {center_lat: lat, center_lon: lon, radius_meters: radiusMi*1609.34});
+    const {data: rent} = await supabase.rpc("calculate_rent", {center_lat: lat, center_lon: lon, radius_meters: radiusMi*1609.34});
+    const {data: schools} = await supabase.rpc("schools_within_radius", {center_lat: lat, center_lon: lon, radius_meters: radiusMi*1609.34});
 
+    const {data: income_score} = await supabase.rpc("calculate_income_score", {center_lat: lat, center_lon: lon, radius_meters: radiusMi*1609.34});
+    const {data: home_value_score} = await supabase.rpc("calculate_home_value_score", {center_lat: lat, center_lon: lon, radius_meters: radiusMi*1609.34});
+    const {data: rent_score} = await supabase.rpc("calculate_rent_score", {center_lat: lat, center_lon: lon, radius_meters: radiusMi*1609.34});
+    const {data: school_score, error} = await supabase.rpc("schools_within_radius_score", {center_lat: lat, center_lon: lon, radius_miles: radiusMi});
     // Mock analysis with a fake delay
     setTimeout(() => {
-      const mockScores = {};
-      enabled.forEach(([key, f]) => {
-        const baseScores = {
-          medianIncome: 78,
-          rentPressure: 64,
-          homePrices: 71,
-          schoolQuality: 83,
-        };
-        const noise = Math.floor(Math.random() * 14) - 7;
-        mockScores[key] = Math.max(0, Math.min(100, baseScores[key] + noise));
-      });
-
-      const weightedResult = computeWeightedScore(factors, mockScores);
+      const scores = {
+        ["Median Income"]: income_score, 
+        ["Median Rent"]: rent_score, 
+        ["Median Home Value"]: home_value_score,
+        ["School"]: school_score
+      };
+      const raw_values = {
+        ["Median Income"]: "$"+income, 
+        ["Median Rent"]: "$"+rent, 
+        ["Median Home Value"]: "$"+home_value,
+        ["School"]: schools.length + " schools"
+      };
+      const weightedResult = computeWeightedScore(factors, scores, raw_values);
       if (!weightedResult) {
         setAnalyzing(false);
         return;
       }
 
       setAnalysisResult({
-        factorScores: mockScores,
+        factorScores: scores,
         overall: weightedResult.overall,
-        weightedBreakdown: weightedResult.breakdown,
+        raw_values: weightedResult.breakdown,
       });
       setAnalyzing(false);
       setAnalyzed(true);
-    }, 1500);
-    const {data: income} = await supabase.rpc("calculate_rent_score", {center_lat: lat, center_lon: lon, radius_meters: radiusMi*1609.34});
-    const {data: home_value} = await supabase.rpc("calculate_home_value_score", {center_lat: lat, center_lon: lon, radius_meters: radiusMi*1609.34});
-    const {data: rent} = await supabase.rpc("calculate_rent_score", {center_lat: lat, center_lon: lon, radius_meters: radiusMi*1609.34});
-
-    console.log(income)
-    console.log(home_value)
-    console.log(rent)
+    }, 0);
   };
 
   const handleSave = () => {
@@ -280,7 +277,6 @@ export default function App() {
   };
 
   const enabledCount = Object.values(factors).filter((f) => f.enabled).length;
-  const totalFactorCount = FACTOR_DEFAULTS.length;
 
   return (
     <div className="app">
@@ -403,7 +399,7 @@ export default function App() {
         <div className="panel-footer">
           <span>FranchiseFit MVP</span>
           <span className="footer-dot" />
-          <span>{enabledCount} of {totalFactorCount} factors active</span>
+          <span>{enabledCount} of 5 factors active</span>
         </div>
       </div>
     </div>

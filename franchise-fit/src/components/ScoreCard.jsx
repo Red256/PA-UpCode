@@ -57,8 +57,8 @@ export default function ScoreCard({ factors, analysisResult }) {
       {/* Per-factor breakdown */}
       <div className="score-breakdown">
         {enabled.map(([key, f]) => {
-          const factorScore = analysisResult.factorScores[key];
-          const weighted = analysisResult.weightedBreakdown?.[key];
+          const factorScore = Math.round(analysisResult.factorScores[key]);
+          const rawValue = analysisResult.raw_values?.[key];
           return (
             <div key={key} className="breakdown-row">
               <span className="breakdown-label">
@@ -67,7 +67,7 @@ export default function ScoreCard({ factors, analysisResult }) {
               <span className="breakdown-vals">
                 <span className="breakdown-score">{factorScore}</span>
                 <span className="breakdown-diff">
-                  {weighted ? `${weighted.weight}% wt` : `${f.value}% wt`}
+                  {rawValue.raw_value}
                 </span>
               </span>
             </div>
